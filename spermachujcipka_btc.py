@@ -12,8 +12,43 @@ To do for btc:
 2. checking balance of btc wallet ✅
 3. sending btc from wallet to another address ✅
 4. generating btc address from private key ✅
+5. generate Multisig addres bech32 (native segwit) 
 """
+import os
+import ecdsa
+import hashlib
+import bech32
+
 class btc:
+
+    @staticmethod
+    def generate_multisig_address(pubkey1_hex, pubkey2_hex):
+
+        privkey1 = os.urandom(32)
+        privkey1_hex = privkey1.hex()
+        sk1 = ecdsa.SigningKey.from_string(privkey1, curve=ecdsa.SECP256k1)
+        vk1 = sk1.verifying_key
+        pubkey1 = b'\x02' + vk1.to_string()[:32] if vk1.to_string()[-1] % 2 == 0 else b'\x03' + vk1.to_string()[:32]
+        pubkey1_hex = pubkey1.hex()
+
+        pubkey2 = bytes.fromhex(pubkey2_hex)
+
+        pubkeys = sorted([pubkey1, pubkey2])
+        redeem_script = (
+            b'\x52' +  # OP_2
+            bytes([len(pubkeys[0])]) + pubkeys[0] +
+            bytes([len(pubkeys[1])]) + pubkeys[1] +
+            b'\x52' +  # OP_2
+            b'\xae'    # OP_CHECKMULTISIG
+        )
+        # Hash redeem script for P2WSH
+        sha256_redeem = hashlib.sha256(redeem_script).digest()
+
+        bech32_addr = bech32.encode('bc', 0, sha256_redeem)
+        return bech32_addr, privkey1_hex
+
+
+
     def generate_btc_bech32_address():
         privkey = os.urandom(32)
         privkey_hex = privkey.hex()
